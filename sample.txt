@@ -1,10 +1,6 @@
-FRC Simple Robot Template
+FRC 2014 Vision Sample Program
 --------------------------------
-
-This program is the simplest sample program that implements
-the full field control and shows the use of the watchdog
-timer. This is an excellent starting point for your programs.
-
-This program simply drives forward for 2 seconds in the
-Autonomous period and does simple arcade driving during the
-Operator Control period.
+This project is a camera vision sample that detects the vision targets in
+the 2014 FRC game. Look at the comments in the code and the Vision Processing section of the
+documentation at http://wpilib.screenstepslive.com. Look in the VisionImages directory
+inside the project that is created for sample images.
