@@ -73,12 +73,12 @@ public:
 		Operator(2), 
 		Arm(3),
 		Launcher(4),
-		ShiftersHigh(3),
-		ShiftersLow(4),
+		ShiftersHigh(4),
+		ShiftersLow(3),
 		PlungerIn(1),
 		PlungerOut(2),
-		ClawIn(5),
-		ClawOut(6),
+		ClawIn(6),
+		ClawOut(5),
 		c(1,1),
 		Auton()
 	{
@@ -118,40 +118,35 @@ public:
 				{IMAQ_MT_AREA, AREA_MINIMUM, 65535, false, false}
 		};												//Particle filter criteria, used to filter out small particles
 		AxisCamera &camera = AxisCamera::GetInstance();	//To use the Axis camera uncomment this line
-		ClawIn.Set(true);
+		
 		while (IsAutonomous() && IsEnabled()) {	
-			if (Potentiometer.GetVoltage() >  3.65 && Potentiometer.GetVoltage() < 3.8)
-			{
-				Arm.Set(0.0);
-			}
-			if (Potentiometer.GetVoltage() < 3.65)
-			{
-				Arm.Set(-0.5);
-			}
-			if (Potentiometer.GetVoltage() > 3.8)
-			{
-				Arm.Set(0.5);
-			}
-			if (Auton.Get() >= 5.0 && PistonCounter < 1){
+			ClawIn.Set(true);
+			ShiftersLow.Set(true);
+			if (Auton.Get() >= 4.0 && PistonCounter < 1){
 				Launcher.Set(1.0);
 				ds->PrintfLine(DriverStationLCD::kMain_Line6, "Hot goal not found ");
+				if (Potentiometer.GetVoltage() >  3.6 && Potentiometer.GetVoltage() < 3.8)
+				{
+					Arm.Set(0.0);
+				}
 				for (double i = 0; i > -1;)
 				{
-					i -= 0.0625;
+					i -= 0.075;
 					myRobot.TankDrive(i, i-.0875);
-					Wait(.11);
+					Wait(.2);
 				}
 				for (double i = -1; i < 0;)
 				{
 					i += 0.0625;
 					myRobot.TankDrive(i, i-.0875);
-					Wait(.11);
+					Wait(.075);
 				}
 				myRobot.TankDrive(0.0, 0.0);
 				ClawOut.Set(true);
+				ClawIn.Set(false);
 				PlungerOut.Set(true);
 				PlungerIn.Set(false);
-				Wait(1.5);
+				Wait(0.75);
 				PlungerOut.Set(false);
 				PlungerIn.Set(true);
 				PistonCounter++;
@@ -256,13 +251,13 @@ public:
 						{
 							i -= 0.0625;
 							myRobot.TankDrive(i, i-.0875);
-							Wait(.11);
+							Wait(.14);
 						}
 						for (double i = -1; i < 0;)
 						{
 							i += 0.0625;
 							myRobot.TankDrive(i, i-.0875);
-							Wait(.11);
+							Wait(.2);
 						}
 						ClawOut.Set(true);
 						myRobot.TankDrive(0.0, 0.0);
@@ -306,8 +301,8 @@ public:
 			ds->UpdateLCD();
 			Auton.Reset();
 			range = RangeFinder.GetVoltage()/0.0248158;
+			ds->PrintfLine(DriverStationLCD::kUser_Line4, "Range: %f", range);
 			myRobot.TankDrive(Driver.GetRawAxis(2),Driver.GetRawAxis(4)); //Tank Drive contol for chassis
-			Launcher.Set(-1*(Operator.GetRawAxis(3)));
 			if(Driver.GetRawButton(6) == true)
 			{
 				ShiftersLow.Set(false);
@@ -316,28 +311,42 @@ public:
 			if(Driver.GetRawButton(8) == true)
 			{
 				ShiftersHigh.Set(false);
-				ShiftersLow.Set(true);
-				
+				ShiftersLow.Set(true);	
 			}
-			if (Operator.GetRawButton(4))
+			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() < 3.6)
 			{
-				if (Potentiometer.GetVoltage() < 3.8 && Potentiometer.GetVoltage() > 3.6)
-				{
-					Arm.Set(0);
-				}
-				if (Potentiometer.GetVoltage() < 3.6)
-				{
-					Arm.Set(-1.0);
-				}
-				if (Potentiometer.GetVoltage() > 3.8)
-				{
-					Arm.Set(0.5);
-				}
+				Arm.Set(-0.5);
+			}
+			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() < 3.8 && Potentiometer.GetVoltage() > 3.6)
+			{
+				Arm.Set(0);
+			}
+			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() > 3.8)
+			{
+				Arm.Set(0.5);
+			}
+			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() < 3.6)
+			{
+				Arm.Set(-0.5);
+				Launcher.Set(1.0);
+			}
+			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() < 3.8 && Potentiometer.GetVoltage() > 3.6)
+			{
+				Arm.Set(0);
+				Launcher.Set(1.0);
+			}
+			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() > 3.8)
+			{
+				Arm.Set(0.5);
 				Launcher.Set(1.0);
 			}	
-			if (Operator.GetRawButton(2))
+			if (Operator.GetRawButton(2) == true)
 			{
-				Launcher.Set(-.1);
+				Launcher.Set(-1.0);
+			}
+			if (Operator.GetRawButton(5) == true)
+			{
+				Launcher.Set(0.5);
 			}
 			if (Operator.GetRawButton(7))
 			{
@@ -353,29 +362,12 @@ public:
 			{
 				ds->PrintfLine(DriverStationLCD::kUser_Line2, "Fire");
 			}
-			else{
-			}
-			//Arm control
-			if (Potentiometer.GetAverageVoltage() >= 3.7 && Operator.GetRawAxis(1) < 0.0)
-			{
-				Arm.Set(0.0);
-			}
-			if (Potentiometer.GetAverageVoltage() <= 2.4 && Operator.GetRawAxis(1) > 0.0)
-			{
-				Arm.Set(0.0);
-			}
-			if (Potentiometer.GetAverageVoltage() < 3.7 && Operator.GetRawButton(3) == true)
-			{
-				Arm.Set(-0.75);
-			}
-			if (Potentiometer.GetAverageVoltage() > 2.9 && Operator.GetRawButton(3) == true)
-			{
-				Arm.Set(0.75);
-			}
-			else
+			if (Operator.GetRawButton(4) != true && Operator.GetRawButton(3) != true && Operator.GetRawButton(2) != true && Operator.GetRawButton(5) != true)
 			{
 				Arm.Set(-1 * Operator.GetRawAxis(2));
-			}
+				Launcher.Set(Operator.GetRawAxis(3));
+			}	
+			
 			Wait(0.005);
 			
 			//Plunger control
