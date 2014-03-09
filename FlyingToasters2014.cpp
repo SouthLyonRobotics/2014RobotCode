@@ -81,6 +81,7 @@ public:
 		ClawOut(5),
 		c(1,1),
 		Auton()
+	
 	{
 		myRobot.SetExpiration(0.1);
 		myRobot.SetSafetyEnabled(false);
@@ -118,40 +119,45 @@ public:
 				{IMAQ_MT_AREA, AREA_MINIMUM, 65535, false, false}
 		};												//Particle filter criteria, used to filter out small particles
 		AxisCamera &camera = AxisCamera::GetInstance();	//To use the Axis camera uncomment this line
-		
-		while (IsAutonomous() && IsEnabled()) {	
+		while (IsAutonomous() && IsEnabled()) {
 			ClawIn.Set(true);
 			ShiftersLow.Set(true);
+			float PIDError;
+			float SetPoint = 3.475;
+			float P = 0.7;
+			float angle = Potentiometer.GetVoltage();	
+			PIDError = (SetPoint - angle);
+			Arm.Set(-1*(PIDError * P));
 			if (Auton.Get() >= 4.0 && PistonCounter < 1){
+				ClawOut.Set(true);
+				ClawIn.Set(false);
+				Arm.Set(0.0);
 				Launcher.Set(1.0);
 				ds->PrintfLine(DriverStationLCD::kMain_Line6, "Hot goal not found ");
-				if (Potentiometer.GetVoltage() >  3.6 && Potentiometer.GetVoltage() < 3.8)
-				{
-					Arm.Set(0.0);
-				}
+				myRobot.TankDrive(0.0, 0.0);
+				PIDLoop(2.0);
+				PlungerOut.Set(true);
+				PlungerIn.Set(false);
+				PIDLoop(0.75);
+				PlungerOut.Set(false);
+				PlungerIn.Set(true);
 				for (double i = 0; i > -1;)
 				{
 					i -= 0.075;
 					myRobot.TankDrive(i, i-.0875);
-					Wait(.2);
+					PIDLoop(.05);
 				}
 				for (double i = -1; i < 0;)
 				{
 					i += 0.0625;
 					myRobot.TankDrive(i, i-.0875);
-					Wait(.075);
-				}
-				myRobot.TankDrive(0.0, 0.0);
-				ClawOut.Set(true);
-				ClawIn.Set(false);
-				PlungerOut.Set(true);
-				PlungerIn.Set(false);
-				Wait(0.75);
-				PlungerOut.Set(false);
-				PlungerIn.Set(true);
+					PIDLoop(.05);
+				}		
+					myRobot.TankDrive(0.0, 0.0);
 				PistonCounter++;
-			}
-			
+			}	
+					
+					
 			ds->PrintfLine(DriverStationLCD::kMain_Line6, "");
             /** 
              * Do the image capture with the camera and apply the algorithm described above. This
@@ -245,31 +251,35 @@ public:
 					//horizontal or vertical index to get the particle report as shown below
 					if (target.Hot && PistonCounter < 1)
 					{
+						ClawOut.Set(true);
+						ClawIn.Set(false);
+						Arm.Set(0.0);
 						Launcher.Set(1.0);
-						ds->PrintfLine(DriverStationLCD::kMain_Line6, "Hot goal found ");
+						ds->PrintfLine(DriverStationLCD::kMain_Line6, "Hot goal not found ");
+						myRobot.TankDrive(0.0, 0.0);
+						PIDLoop(2.0);
+						PlungerOut.Set(true);
+						PlungerIn.Set(false);
+						PIDLoop(0.75);
+						PlungerOut.Set(false);
+						PlungerIn.Set(true);
 						for (double i = 0; i > -1;)
 						{
-							i -= 0.0625;
+							i -= 0.075;
 							myRobot.TankDrive(i, i-.0875);
-							Wait(.14);
+							PIDLoop(.05);
 						}
 						for (double i = -1; i < 0;)
 						{
 							i += 0.0625;
 							myRobot.TankDrive(i, i-.0875);
-							Wait(.2);
-						}
-						ClawOut.Set(true);
+							PIDLoop(.05);
+						}		
 						myRobot.TankDrive(0.0, 0.0);
-						PlungerOut.Set(true);
-						PlungerIn.Set(false);
-						Wait(1.5);
-						PlungerOut.Set(false);
-						PlungerIn.Set(true);
 						PistonCounter++;
 					}
-				}
-			}
+				}	
+			}		
 			// be sure to delete images after using them
 			delete filteredImage;
 			delete thresholdImage;
@@ -294,15 +304,27 @@ public:
 		DriverStationLCD *ds = DriverStationLCD::GetInstance();
 		myRobot.SetSafetyEnabled(true);
 		float angle;
+		float PIDError;
+		float PIDError2;
+		float SetPoint = 3.475;
+		float SetPoint2 = 3.9;
+		float P = 0.9;
 		while (IsOperatorControl())
 		{
 			angle = Potentiometer.GetVoltage();
+			PIDError = (SetPoint - angle);
+			PIDError2 = (SetPoint2 - angle);
 			ds->PrintfLine(DriverStationLCD::kUser_Line3, "Pot: %f", angle);
 			ds->UpdateLCD();
 			Auton.Reset();
 			range = RangeFinder.GetVoltage()/0.0248158;
 			ds->PrintfLine(DriverStationLCD::kUser_Line4, "Range: %f", range);
 			myRobot.TankDrive(Driver.GetRawAxis(2),Driver.GetRawAxis(4)); //Tank Drive contol for chassis
+			if (Operator.GetRawButton(8) == true)
+			{
+				ds->PrintfLine(DriverStationLCD::kUser_Line1, "PID: %f", PIDError * P);
+				Arm.Set(-1*(PIDError * P));
+			}
 			if(Driver.GetRawButton(6) == true)
 			{
 				ShiftersLow.Set(false);
@@ -313,47 +335,44 @@ public:
 				ShiftersHigh.Set(false);
 				ShiftersLow.Set(true);	
 			}
-			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() < 3.6)
+			if (Operator.GetRawButton(3) == true)
 			{
-				Arm.Set(-0.5);
+				Arm.Set(-1*(PIDError * P));
 			}
-			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() < 3.8 && Potentiometer.GetVoltage() > 3.6)
+			if (Operator.GetRawButton(4) == true)
 			{
-				Arm.Set(0);
-			}
-			if (Operator.GetRawButton(3) == true && Potentiometer.GetVoltage() > 3.8)
-			{
-				Arm.Set(0.5);
-			}
-			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() < 3.6)
-			{
-				Arm.Set(-0.5);
+				Arm.Set(-1*(PIDError * P));
 				Launcher.Set(1.0);
 			}
-			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() < 3.8 && Potentiometer.GetVoltage() > 3.6)
+			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() < 3.6 && Potentiometer.GetVoltage() > 3.45)
 			{
 				Arm.Set(0);
 				Launcher.Set(1.0);
 			}
-			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() > 3.8)
+			if (Operator.GetRawButton(4) == true && Potentiometer.GetVoltage() > 3.6)
 			{
 				Arm.Set(0.5);
 				Launcher.Set(1.0);
 			}	
 			if (Operator.GetRawButton(2) == true)
 			{
-				Launcher.Set(-1.0);
+				Launcher.Set(-0.75);
 			}
 			if (Operator.GetRawButton(5) == true)
 			{
+				Arm.Set(-1*(PIDError2 * P));
 				Launcher.Set(0.5);
 			}
-			if (Operator.GetRawButton(7))
+			if (Operator.GetRawButton(6) == true)
+			{
+				Launcher.Set(0.25);
+			}
+			if (Operator.GetRawButton(9))
 			{
 				ClawOut.Set(false);
 				ClawIn.Set(true);
 			}
-			if (Operator.GetRawButton(6))
+			if (Operator.GetRawButton(10))
 			{
 				ClawIn.Set(false);
 				ClawOut.Set(true);
@@ -362,7 +381,9 @@ public:
 			{
 				ds->PrintfLine(DriverStationLCD::kUser_Line2, "Fire");
 			}
-			if (Operator.GetRawButton(4) != true && Operator.GetRawButton(3) != true && Operator.GetRawButton(2) != true && Operator.GetRawButton(5) != true)
+			if (Operator.GetRawButton(4) != true && Operator.GetRawButton(3) != true && Operator.GetRawButton(2) != true &&
+					Operator.GetRawButton(5) != true && Operator.GetRawButton(8) != true && Operator.GetRawButton(6) != true && 
+					Operator.GetRawButton(7) != true)
 			{
 				Arm.Set(-1 * Operator.GetRawAxis(2));
 				Launcher.Set(Operator.GetRawAxis(3));
@@ -476,6 +497,24 @@ public:
 		isHot &= (target.leftScore > LR_SCORE_LIMIT) | (target.rightScore > LR_SCORE_LIMIT);
 		
 		return isHot;
+	}
+	
+	void PIDLoop(double Time)
+	{
+		
+			double Loops = Time/0.005;
+			float PIDError;
+			float SetPoint = 3.475;
+			float P = 0.7;
+			while (Loops > 0)
+			{
+				Loops = Loops-1;
+				float angle = Potentiometer.GetVoltage();	
+				PIDError = (SetPoint - angle);
+				Arm.Set(-1*(PIDError * P));
+				Wait(0.005);
+			}
+			Arm.Set(0.0);
 	}
 	
 };
